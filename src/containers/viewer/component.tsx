@@ -27,6 +27,7 @@ import {
 import * as Kookit from "../../assets/lib/kookit.min";
 import PopupRefer from "../../components/popups/popupRefer";
 import { ocrLangList } from "../../constants/dropdownList";
+import { aiIllustrationService } from "../../services/aiIllustrationService";
 declare var window: any;
 let lock = false; //prevent from clicking too fasts
 
@@ -88,6 +89,15 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     window.addEventListener("resize", () => {
       BookUtil.reloadBooks();
     });
+  }
+
+  componentWillUnmount() {
+    // Cleanup AI illustration service when component unmounts
+    try {
+      aiIllustrationService.cleanup();
+    } catch (error) {
+      console.warn('Error cleaning up AI illustration service on unmount:', error);
+    }
   }
 
   handleHighlight = async (rendition: any) => {
@@ -175,6 +185,14 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     if (lock) return;
     let { key, path, format, name } = this.props.currentBook;
     this.props.handleHtmlBook(null);
+    
+    // Cleanup AI illustration service when changing books
+    try {
+      aiIllustrationService.cleanup();
+    } catch (error) {
+      console.warn('Error cleaning up AI illustration service:', error);
+    }
+    
     if (this.state.rendition) {
       this.state.rendition.removeContent();
     }
@@ -293,6 +311,16 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       rendition: rendition,
     });
     this.setState({ rendition });
+
+    // Initialize AI illustration service
+    try {
+      console.log('🎨 Initializing AI illustration service for book:', this.props.currentBook.key);
+      await aiIllustrationService.initialize(rendition, this.props.currentBook.key);
+      console.log('✅ AI illustration service initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize AI illustration service:', error);
+      // Continue without AI illustrations - graceful degradation
+    }
 
     StyleUtil.addDefaultCss();
     rendition.tranformText();

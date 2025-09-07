@@ -7,6 +7,7 @@ import { readerSettingList } from "../../../constants/settingList";
 import toast from "react-hot-toast";
 import BookUtil from "../../../utils/file/bookUtil";
 import { vexPromptAsync } from "../../../utils/common";
+
 declare var window: any;
 class SettingSwitch extends React.Component<
   SettingSwitchProps,
@@ -37,6 +38,8 @@ class SettingSwitch extends React.Component<
         ConfigService.getReaderConfig("isHidePageButton") === "yes",
       isHideMenuButton:
         ConfigService.getReaderConfig("isHideMenuButton") === "yes",
+      isAIIllustrationEnabled:
+        ConfigService.getReaderConfig("aiIllustrationEnabled") === "yes",
     };
   }
 
@@ -46,8 +49,11 @@ class SettingSwitch extends React.Component<
 
   _handleChange = (stateName: string) => {
     this.setState({ [stateName]: !this.state[stateName] } as any, () => {
+      // Handle AI illustration setting with proper config key
+      const configKey = stateName === "isAIIllustrationEnabled" ? "aiIllustrationEnabled" : stateName;
+      
       ConfigService.setReaderConfig(
-        stateName,
+        configKey,
         this.state[stateName] ? "yes" : "no"
       );
       toast(this.props.t("Change successful"));
@@ -166,6 +172,9 @@ class SettingSwitch extends React.Component<
                     case "isHidePDFConvertButton":
                       this.handleChange("isHidePDFConvertButton", false);
                       break;
+                    case "isAIIllustrationEnabled":
+                      this._handleChange("isAIIllustrationEnabled");
+                      break;
                     default:
                       break;
                   }
@@ -189,6 +198,8 @@ class SettingSwitch extends React.Component<
               </span>
             </div>
           ))}
+        
+
       </>
     );
   }

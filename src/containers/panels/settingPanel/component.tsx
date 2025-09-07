@@ -75,7 +75,7 @@ class SettingPanel extends React.Component<
               return true;
             })
             .map((item) => (
-              <SliderList {...{ item }} />
+              <SliderList key={item.title} {...{ item }} />
             ))}
           <DropdownList />
           <SettingSwitch />

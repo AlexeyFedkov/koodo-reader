@@ -25,4 +25,5 @@ export interface SettingSwitchState {
   isHideScaleButton: boolean;
   isHidePDFConvertButton: boolean;
   isHideMenuButton: boolean;
+  isAIIllustrationEnabled: boolean;
 }

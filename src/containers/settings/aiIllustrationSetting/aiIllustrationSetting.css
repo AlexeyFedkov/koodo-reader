@@ -1,0 +1,50 @@
+.ai-illustration-main-setting {
+  margin-top: 10px;
+}
+
+.ai-cache-size-input {
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: 14px;
+  width: 80px;
+  text-align: center;
+}
+
+.ai-cache-management-main {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.ai-cache-stats-main {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+
+.ai-cache-stat-main {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.ai-cache-stat-label-main {
+  color: var(--text-color);
+  opacity: 0.9;
+}
+
+/* Dark mode support */
+[data-theme="dark"] .ai-cache-size-input {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .ai-cache-management-main {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .ai-cache-stats-main {
+  background-color: rgba(255, 255, 255, 0.05);
+}

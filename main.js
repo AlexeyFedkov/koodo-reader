@@ -8,7 +8,9 @@ const {
   powerSaveBlocker,
   nativeTheme,
   protocol,
+  safeStorage,
 } = require("electron");
+const axios = require("axios");
 const path = require("path");
 const isDev = require("electron-is-dev");
 const Store = require("electron-store");
@@ -773,6 +775,272 @@ const createMainWin = () => {
 
     event.returnValue = filePath;
     filePath = null;
+  });
+
+  // AI API credential management
+  const AI_API_KEY_STORE_KEY = "hyperbolic_api_key";
+  
+  const storeApiKey = (apiKey) => {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(apiKey);
+      store.set(AI_API_KEY_STORE_KEY, encrypted.toString('base64'));
+    } else {
+      // Fallback to existing encryption method
+      const { TokenService } = require('./src/assets/lib/kookit-extra.min.mjs');
+      TokenService.getFingerprint().then(fingerprint => {
+        const encrypted = encrypt(apiKey, fingerprint);
+        store.set(AI_API_KEY_STORE_KEY, encrypted);
+      });
+    }
+  };
+
+  const getApiKey = async () => {
+    const encryptedKey = store.get(AI_API_KEY_STORE_KEY);
+    if (!encryptedKey) return null;
+
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        const buffer = Buffer.from(encryptedKey, 'base64');
+        return safeStorage.decryptString(buffer);
+      } else {
+        // Fallback to existing decryption method
+        const { TokenService } = await import('./src/assets/lib/kookit-extra.min.mjs');
+        const fingerprint = await TokenService.getFingerprint();
+        return decrypt(encryptedKey, fingerprint);
+      }
+    } catch (error) {
+      console.error('Failed to decrypt API key:', error);
+      return null;
+    }
+  };
+
+  // AI API IPC handlers
+  ipcMain.handle("ai-set-api-key", async (event, config) => {
+    try {
+      storeApiKey(config.apiKey);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to store API key:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("ai-generate-prompt", async (event, config) => {
+    const { locationKey, text, abortSignal } = config;
+    
+    try {
+      const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtcmZlZGtvdkBnbWFpbC5jb20iLCJpYXQiOjE3Mzk0NTg2MTh9.M_42ijlTQmEPkprxul3hZc6VwNrj1D_t2PVTtu3yKXM';
+
+      const requestConfig = {
+        method: 'POST',
+        url: 'https://api.hyperbolic.xyz/v1/chat/completions',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          model: "openai/gpt-oss-20b",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert at creating concise, vivid scene descriptions for illustration. Based on the provided text, create a single paragraph description that captures the key visual elements: characters, setting, historical era, mood, and time of day. Keep it under 100 words and focus on visual details that would make a compelling illustration. Do not include text overlays or watermarks in your description."
+            },
+            {
+              role: "user",
+              content: `Create an illustration description for this text: ${text}`
+            }
+          ],
+          max_tokens: 512,
+          temperature: 0.7,
+          top_p: 0.8,
+          stream: false
+        },
+        timeout: 30000
+      };
+
+      // Add abort signal if provided
+      if (abortSignal) {
+        requestConfig.signal = abortSignal;
+      }
+
+      const response = await axios(requestConfig);
+      
+      if (response.data && response.data.choices && response.data.choices[0]) {
+        const prompt = response.data.choices[0].message.content.trim();
+        return { success: true, prompt, locationKey };
+      } else {
+        return { 
+          success: false, 
+          error: 'Invalid response format from chat API',
+          shouldRetry: false
+        };
+      }
+    } catch (error) {
+      // Handle request cancellation
+      if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+        return { success: false, error: 'Request cancelled', cancelled: true };
+      }
+      
+      // Handle network and timeout errors
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        return { 
+          success: false, 
+          error: 'Network error. Please check your internet connection.',
+          shouldRetry: true
+        };
+      }
+
+      // Handle HTTP errors
+      if (error.response) {
+        const status = error.response.status;
+        const statusText = error.response.statusText || 'Unknown error';
+        
+        if (status >= 500) {
+          return { 
+            success: false, 
+            error: `Server error (${status}): ${statusText}`,
+            shouldRetry: true
+          };
+        } else if (status === 429) {
+          return { 
+            success: false, 
+            error: 'Rate limit exceeded. Please try again later.',
+            shouldRetry: true
+          };
+        } else if (status === 401) {
+          return { 
+            success: false, 
+            error: 'Invalid API key. Please check your Hyperbolic API key.',
+            shouldRetry: false
+          };
+        } else if (status === 403) {
+          return { 
+            success: false, 
+            error: 'Access forbidden. Please check your API key permissions.',
+            shouldRetry: false
+          };
+        } else {
+          return { 
+            success: false, 
+            error: `API error (${status}): ${statusText}`,
+            shouldRetry: false
+          };
+        }
+      }
+      
+      console.error('AI prompt generation failed:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Unknown error occurred',
+        shouldRetry: false
+      };
+    }
+  });
+
+  ipcMain.handle("ai-generate-image", async (event, config) => {
+    const { locationKey, prompt, abortSignal } = config;
+    
+    try {
+      const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtcmZlZGtvdkBnbWFpbC5jb20iLCJpYXQiOjE3Mzk0NTg2MTh9.M_42ijlTQmEPkprxul3hZc6VwNrj1D_t2PVTtu3yKXM';
+
+      const requestConfig = {
+        method: 'POST',
+        url: 'https://api.hyperbolic.xyz/v1/image/generation',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          model_name: "FLUX.1-dev",
+          prompt: prompt,
+          enable_refiner: "false",
+          negative_prompt: "text, watermark, signature, logo, words, letters, writing, typography",
+          strength: "0.8",
+          steps: "30",
+          cfg_scale: "5",
+          resolution: "1024x1024",
+          backend: "auto"
+        },
+        timeout: 60000
+      };
+
+      // Add abort signal if provided
+      if (abortSignal) {
+        requestConfig.signal = abortSignal;
+      }
+
+      const response = await axios(requestConfig);
+      
+      if (response.data && response.data.images && response.data.images[0]) {
+        const imageData = response.data.images[0].image;
+        return { success: true, imageData, locationKey };
+      } else {
+        return { 
+          success: false, 
+          error: 'Invalid response format from image API',
+          shouldRetry: false
+        };
+      }
+    } catch (error) {
+      // Handle request cancellation
+      if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+        return { success: false, error: 'Request cancelled', cancelled: true };
+      }
+      
+      // Handle network and timeout errors
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        return { 
+          success: false, 
+          error: 'Network error. Please check your internet connection.',
+          shouldRetry: true
+        };
+      }
+
+      // Handle HTTP errors
+      if (error.response) {
+        const status = error.response.status;
+        const statusText = error.response.statusText || 'Unknown error';
+        
+        if (status >= 500) {
+          return { 
+            success: false, 
+            error: `Server error (${status}): ${statusText}`,
+            shouldRetry: true
+          };
+        } else if (status === 429) {
+          return { 
+            success: false, 
+            error: 'Rate limit exceeded. Please try again later.',
+            shouldRetry: true
+          };
+        } else if (status === 401) {
+          return { 
+            success: false, 
+            error: 'Invalid API key. Please check your Hyperbolic API key.',
+            shouldRetry: false
+          };
+        } else if (status === 403) {
+          return { 
+            success: false, 
+            error: 'Access forbidden. Please check your API key permissions.',
+            shouldRetry: false
+          };
+        } else {
+          return { 
+            success: false, 
+            error: `API error (${status}): ${statusText}`,
+            shouldRetry: false
+          };
+        }
+      }
+      
+      console.error('AI image generation failed:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Unknown error occurred',
+        shouldRetry: false
+      };
+    }
   });
 };
 

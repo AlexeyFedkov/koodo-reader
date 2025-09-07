@@ -382,6 +382,7 @@ class GeneralSetting extends React.Component<
           <select
             name=""
             className="lang-setting-dropdown"
+            value={ConfigService.getReaderConfig("updateChannel") || "stable"}
             onChange={(event) => {
               ConfigService.setReaderConfig(
                 "updateChannel",
@@ -398,9 +399,6 @@ class GeneralSetting extends React.Component<
                 value={item.value}
                 key={item.value}
                 className="lang-setting-option"
-                selected={
-                  item.value === ConfigService.getReaderConfig("updateChannel")
-                }
               >
                 {this.props.t(item.label)}
               </option>
@@ -412,6 +410,7 @@ class GeneralSetting extends React.Component<
           <select
             name=""
             className="lang-setting-dropdown"
+            value={ConfigService.getReaderConfig("lang") || "en"}
             onChange={(event) => {
               this.changeLanguage(event.target.value);
             }}
@@ -421,11 +420,6 @@ class GeneralSetting extends React.Component<
                 value={item.value}
                 key={item.value}
                 className="lang-setting-option"
-                selected={
-                  item.value === (ConfigService.getReaderConfig("lang") || "en")
-                    ? true
-                    : false
-                }
               >
                 {item.label}
               </option>
@@ -437,6 +431,10 @@ class GeneralSetting extends React.Component<
           <select
             name=""
             className="lang-setting-dropdown"
+            value={
+              ConfigService.getReaderConfig("searchEngine") ||
+              (navigator.language === "zh-CN" ? "baidu" : "google")
+            }
             onChange={(event) => {
               this.changeSearch(event.target.value);
             }}
@@ -446,13 +444,6 @@ class GeneralSetting extends React.Component<
                 value={item.value}
                 key={item.value}
                 className="lang-setting-option"
-                selected={
-                  item.value ===
-                  (ConfigService.getReaderConfig("searchEngine") ||
-                    (navigator.language === "zh-CN" ? "baidu" : "google"))
-                    ? true
-                    : false
-                }
               >
                 {this.props.t(item.label)}
               </option>

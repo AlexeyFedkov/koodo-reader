@@ -22,6 +22,7 @@ import GeneralSetting from "../../../containers/settings/generalSetting";
 import SyncSetting from "../../../containers/settings/syncSetting";
 import AccountSetting from "../../../containers/settings/accountSetting";
 import PluginSetting from "../../../containers/settings/pluginSetting";
+
 declare var window: any;
 class SettingDialog extends React.Component<
   SettingInfoProps,
@@ -355,6 +356,7 @@ class SettingDialog extends React.Component<
                   </div>
                 </>
               )}
+
             </>
           ) : this.props.settingMode === "appearance" ? (
             <>

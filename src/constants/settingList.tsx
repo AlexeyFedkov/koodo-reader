@@ -316,6 +316,11 @@ export const readerSettingList = [
     propName: "isHidePDFConvertButton",
     isPDF: true,
   },
+  {
+    title: "Enable AI illustrations",
+    propName: "isAIIllustrationEnabled",
+    isPDF: true,
+  },
 ];
 export const officialTranList = {
   English: "English",
